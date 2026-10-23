@@ -1,0 +1,51 @@
+/*
+ * Blog Kit — structural styles only. Colours, type and layout belong to the
+ * theme; override anything here from theme.json or the theme stylesheet.
+ */
+
+/* §12.1 — anchored headings stop below a sticky header. */
+:where(.wp-block-post-content, .entry-content) :is(h2, h3, h4)[id] {
+	scroll-margin-top: var(--blog-kit-scroll-offset, 6rem);
+}
+
+.blog-kit-toc__title {
+	cursor: pointer;
+}
+
+.blog-kit-toc__list {
+	margin: 0.5em 0 0;
+	padding-inline-start: 1.25em;
+}
+
+.blog-kit-toc__list a[aria-current="true"] {
+	font-weight: 600;
+}
+
+/* Category navigation: a wrapping row of links ("pills"); theme adds the look. */
+.blog-kit-categories__list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.blog-kit-categories__list a {
+	display: inline-block;
+	min-height: 24px; /* WCAG 2.2 target size */
+	padding: 0.25em 0.75em;
+}
+
+.blog-kit-categories__list a[aria-current="page"] {
+	font-weight: 600;
+}
+
+.blog-kit-related__list {
+	display: grid;
+	gap: 1.5rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+}

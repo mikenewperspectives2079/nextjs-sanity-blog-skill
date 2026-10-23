@@ -1,24 +1,25 @@
 {
-  "name": "nextjs-sanity-blog",
+  "name": "wordpress-blog",
+  "description": "Claude Code skill for adding an SEO-first, i18n-ready blog to WordPress sites.",
   "owner": {
-    "name": "Vladimir Terekhov",
-    "email": "vv@attractgroup.com",
-    "url": "https://github.com/BuildShipGrowRepeat"
+    "name": "mikenewperspectives2079",
+    "url": "https://github.com/mikenewperspectives2079"
   },
   "plugins": [
     {
-      "name": "building-blog",
+      "name": "building-wordpress-blog",
       "source": ".",
-      "description": "Opinionated, batteries-included spec for adding an SEO-first, i18n-ready blog to a Next.js + Sanity site. 40-question intake, one-page plan, 20-section spec, pass/fail checklist. Includes AI hero images via Gemini 3 Pro Image (Nano Banana Pro).",
-      "version": "0.1.0",
-      "homepage": "https://github.com/BuildShipGrowRepeat/nextjs-sanity-blog-skill",
+      "description": "Opinionated, batteries-included spec for adding an SEO-first, i18n-ready blog to a WordPress site. 46-question intake, one-page plan, 18-section spec, pass/fail checklist. Includes the Blog Kit site plugin and AI hero images via Gemini image models.",
+      "version": "1.0.0",
+      "homepage": "https://github.com/mikenewperspectives2079/nextjs-sanity-blog-skill",
       "license": "MIT",
       "category": "development",
       "keywords": [
-        "nextjs",
-        "sanity",
+        "wordpress",
         "blog",
         "seo",
+        "yoast",
+        "rank-math",
         "i18n",
         "hreflang",
         "ai-images"

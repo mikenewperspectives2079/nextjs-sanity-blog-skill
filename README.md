@@ -1,107 +1,188 @@
-# Next.js + Sanity Blog (Claude Code skill)
+# WordPress Blog (Claude Code skill)
 
-An opinionated, batteries-included spec for adding a blog to a Next.js website backed by Sanity CMS. Built as a Claude Code skill: install it, say "add a blog", and the agent walks 40 intake questions, scans your project, drafts a one-page plan for your approval, and then implements against a ~1100-line technical spec that already covers SEO, i18n, performance, accessibility, AI hero image generation, and a pass/fail checklist.
+An opinionated, batteries-included spec for adding a blog to a WordPress site. It's built as a Claude Code skill: install it and say "add a blog to this WordPress site". The agent then:
 
-Aimed at corporate blogs. Organic-search-first. Optional AI authoring with human review inside Sanity Studio.
+1. Scans the site.
+2. Walks 46 intake questions.
+3. Drafts a one-page plan and waits for your approval.
+4. Implements against a technical spec that covers SEO, i18n, performance, accessibility and AI hero images, ending on a pass/fail checklist.
+
+Aimed at corporate blogs. Organic-search-first. Works with the site you already have (block theme, classic theme or page builder; Yoast SEO or Rank Math; Polylang or WPML), configuring them instead of fighting or duplicating them.
 
 ## What you actually get
 
-- A 40-question intake that covers every fork that meaningfully changes the spec: locales, author model, category count, CMS workflow, analytics, consent, AI imagery, comments, search, sharing, dark mode, scheduled publishing, and the rest.
-- A one-page plan template the agent fills from your answers and stops at, waiting for explicit sign-off before any code change.
-- A 20-section technical spec to implement against: Sanity schema, URL structure, smart 404 for missing-locale slugs, hreflang rules, BlogPosting and FAQPage JSON-LD, OG, Atom feeds, sitemap, performance budgets tighter than Google's "good" baseline, WCAG 2.2 AA targets, font and motion rules, deletion webhook handling.
-- A working TypeScript generator for AI hero images via Gemini 3 Pro Image (Nano Banana Pro), with locale-keyed slugs, idempotent re-runs, and a per-project style guide template.
-- A pass/fail checklist that is the definition of done.
+- **A 46-question intake** that covers every fork that changes the build:
+  - the site's environment, theme type, SEO plugin and multilingual plugin;
+  - locales, author model, categories, permalinks;
+  - analytics and consent, AI imagery, and the rest.
+
+  The agent detects most answers from the site itself, so you mostly confirm defaults.
+- **A one-page plan template** the agent fills in from your answers and stops at, waiting for explicit sign-off before touching the site.
+- **An 18-section technical spec**:
+  - settings tables for Yoast SEO and Rank Math, and the multilingual rules for Polylang and WPML;
+  - URL structure, with a redirect plan for sites that change permalinks;
+  - structured data, Open Graph, sitemaps, robots.txt and feeds;
+  - performance budgets tighter than Google's "good" baseline, and WCAG 2.2 AA targets;
+  - template skeletons for block themes, classic themes and page builders.
+- **Blog Kit**, a small site plugin for the gaps WordPress leaves:
+  - **Navigation:** table of contents, heading anchors, related posts, category navigation, and a proper H1 on the blog index.
+  - **Byline:** the "Updated" date and reading time.
+  - **FAQ:** an FAQ section plus its schema.
+  - **Guardrails:** a publish guard (no post goes live without one real category, a featured image and alt text), honest 404s for tag, date and author archives, WebP/AVIF uploads.
+  - **SEO and language fixes:** a 1200×630 share image with alt text, noindex for thin categories, the language-switcher fallback and hreflang gaps.
+
+  It ships as blocks, shortcodes and template tags, so it works with any theme type.
+- **An AI hero-image generator** (Node, no dependencies). It makes on-brand 16:9 images with Google's Gemini image models, uploads them to the media library with per-language alt text, and sets them as featured images. A per-project style-guide template comes with it.
+- **A pass/fail checklist** that is the definition of done.
 
 ## Install
-
-Two ways.
 
 **As a Claude Code plugin** (recommended):
 
 ```
-/plugin marketplace add BuildShipGrowRepeat/nextjs-sanity-blog-skill
-/plugin install building-blog@nextjs-sanity-blog
+/plugin marketplace add mikenewperspectives2079/nextjs-sanity-blog-skill
+/plugin install building-wordpress-blog@wordpress-blog
 ```
 
-**Manual**:
-
-Clone the repo and drop the skill folder into your local Claude skills directory.
+**Manual**: clone the repo and copy the skill folder into your Claude skills directory.
 
 ```
-git clone https://github.com/BuildShipGrowRepeat/nextjs-sanity-blog-skill.git
-cp -R nextjs-sanity-blog-skill/skills/building-blog ~/.claude/skills/
+git clone https://github.com/mikenewperspectives2079/nextjs-sanity-blog-skill.git
+cp -R nextjs-sanity-blog-skill/skills/building-wordpress-blog ~/.claude/skills/
 ```
+
+If you rename the repository (for example to `wordpress-blog-skill`), update the URLs above and in `.claude-plugin/`.
 
 ## How to use it
 
-Once installed, say one of:
+Open Claude Code in the site's project folder: a full WordPress install, a Bedrock project, a local site (LocalWP, wp-env, DDEV, Lando), or just the theme's repository. Then say one of:
 
-- "add a blog to this project"
-- "set up a blog with Sanity"
-- "build the blog section"
+- "add a blog to this WordPress site"
+- "set up the blog section"
+- "build the blog templates and SEO setup"
 
 Claude will:
 
-1. Scan your project (`package.json`, `next.config.*`, message files, design tokens, `CLAUDE.md`, existing Sanity studio folder if any) and pre-fill anything it can detect.
-2. Walk the 40 intake questions, showing recommended defaults so you can move quickly. The agent groups related questions and uses interactive picks where the host environment supports them.
+1. Scan the site: WordPress version, theme type, plugins, permalinks, existing posts, categories, tags, and what the front end currently outputs. It uses WP-CLI when available and the REST API otherwise.
+2. Walk the intake questions, showing recommended defaults so you can move quickly.
 3. Hand you a one-page implementation plan and wait for your sign-off.
-4. Build against the spec, phase by phase, finishing on the pass/fail checklist.
+4. Build it on a local copy or staging, phase by phase:
+   1. settings;
+   2. SEO plugin;
+   3. multilingual setup;
+   4. Blog Kit;
+   5. templates;
+   6. content migration;
+   7. hero images.
 
-## What's in the spec
+   It finishes on the pass/fail checklist. Settings it can't change itself (no WP-CLI) come back to you as a click-by-click admin checklist.
 
-Three files, each readable on its own:
+## What's in the skill
 
-- `skills/building-blog/SKILL.md` — the orchestrator. Workflow, scan checklist, fallbacks for non-interactive environments.
-- `skills/building-blog/blog-technical-requirements.md` — the engineering spec. §0 holds the intake questionnaire, §1 is the per-project profile filled from the answers, §2 to §20 is the universal spec that reads from §1, §21 is the pass/fail checklist.
-- `skills/building-blog/blog-image-style-guide.md` — a brand-tailorable template for AI-generated hero images. The intake sits on top, and the agent helps you populate the topic table and worked examples for your domain.
+- `skills/building-wordpress-blog/SKILL.md`: the orchestrator. Workflow, site-scan checklist, verification steps, fallbacks for non-interactive environments.
+- `skills/building-wordpress-blog/blog-technical-requirements.md`: the engineering spec.
+  - §0 holds the intake questionnaire; §1 is the per-project profile filled in from the answers.
+  - §2–§18 is the universal spec that reads from §1.
+  - §19 is the pass/fail checklist; §20 covers AI hero images.
+- `skills/building-wordpress-blog/blog-image-style-guide.md`: a brand-tailorable template for AI-generated hero images.
+- `skills/building-wordpress-blog/site-plugin/blog-kit/`: the Blog Kit site plugin, with its own README and a French translation as a template.
+- `skills/building-wordpress-blog/scripts/`: the hero-image generator and an example topics file.
 
 ## Stack assumptions
 
-- Next.js, App Router. Tested against 14 and 15; Next.js 16 gotchas are documented inline (async `params`, uncached `fetch`, Turbopack, `stega` outside draft mode).
-- Sanity v3. Studio either hosted at `*.sanity.studio` or embedded under `/studio`.
-- `next-intl` for i18n on multilingual projects. Single-locale projects skip the i18n section entirely.
-- Tailwind is assumed but not strictly required. The spec locks Tailwind-style classes in a handful of typography rules only.
+- **WordPress 7.0+** (tested on 7.1.3). 6.8–6.9 works too, without live editor previews of Blog Kit's blocks. PHP 8.1+ recommended.
+- **Theme:** a block theme (preferred), a classic theme with a child theme, or a page builder for templates (not for post content).
+- **SEO plugin:** Yoast SEO or Rank Math, exactly one. AIOSEO, SEOPress and The SEO Framework can meet the spec, but Blog Kit's integrations target the first two.
+- **Multilingual:** Polylang (recommended for independent posts per language) or WPML. TranslatePress only fits "every post translated" sites. Single-language sites skip the i18n sections.
+- **Caching:** a page cache, host-level or plugin.
+- **Working copy:** a local copy or staging site to work on. Production is only touched by deploys.
 
-If your stack is meaningfully different (Contentful, Payload, MDX-only, Astro, Remix), this skill is the wrong tool for direct execution. The questionnaire structure and the SEO section still work as a checklist. The rest does not transfer cleanly.
+## How it was verified
+
+Every hook name, option key and behaviour in the spec was checked against source code:
+
+- WordPress 7.1.3;
+- Yoast SEO 28.7;
+- Rank Math 1.0.280;
+- Polylang 3.9.1;
+- WPML 4.9;
+- the Gemini SDKs.
+
+Blog Kit and the hero-image script were then run on a WordPress 7.1.3 test site. Each setup passed an end-to-end suite of real HTTP checks (one H1, ToC ids, schema graph, canonicals, hreflang, 404s, sitemap contents, image formats, publish guard, and so on):
+
+| Setup | Checks passed |
+|---|---|
+| No SEO plugin | 47 / 47 |
+| Rank Math | 48 / 48 |
+| Yoast SEO | 50 / 50 |
+| Polylang (English + French) | 12 / 12 |
+
+On top of the suite:
+
+- The classic-theme template tags and the shortcodes were smoke-tested.
+- The hero-image script ran six scenarios (dry run, idempotent re-run, `--force`, a retired model ID, a missing language, a numeric post ID) against a mock Gemini endpoint.
+
+Several defaults in the spec exist because of what that testing found. For example:
+
+- WordPress does not redirect old URLs when you change the permalink structure.
+- Core's Time to Read block shows a range unless told otherwise.
+- The blog index has no H1 with core blocks alone.
+- Yoast doesn't build its index on staging sites.
+- Rank Math prints nothing until its setup wizard is done or skipped.
+
+## Differences from the Next.js + Sanity version
+
+This repository started as the Next.js + Sanity `building-blog` skill. The SEO, accessibility and performance opinions carry over; the implementation is WordPress-native:
+
+- **Category pages are in scope.** WordPress creates them anyway, so they become indexable topic hubs (noindexed while thin) instead of query-parameter filters.
+- **The SEO plugin owns metadata, schema and sitemaps.** The spec configures it and Blog Kit fills only the gaps.
+- **Trailing slashes** follow WordPress's convention. Feeds are WordPress's RSS 2.0.
+- **Reading time** uses core's block (238 wpm). The ToC, related posts and the publish guard come from Blog Kit.
+- **FAQ markup is optional.** Google retired FAQ rich results in May 2026.
+- **Hero images** go to the media library as featured images, with one media item per language for alt text.
 
 ## What this is not
 
-- Not a docs site generator. Use Nextra, Docusaurus, or Starlight.
-- Not for high-velocity news publishers, where sitemap chunking and editorial workflow become primary concerns and this spec gets thin.
-- Not a marketing landing page builder dressed up as a blog.
-- Not a UI library or design system. It assumes you already have one.
+- Not for headless WordPress. With a Next.js or Astro front end, the Next.js version of this skill fits better.
+- Not a docs site generator. Use Nextra, Docusaurus or Starlight.
+- Not for high-velocity news publishers, where sitemap chunking, Google News and editorial workflow become primary concerns.
+- Not a theme or a design system. It assumes the site already has one.
+- Not a page-builder content workflow. Posts are written in the block editor.
 
 ## Why this exists
 
-Every time you ask an AI to "add a blog to my Next.js site", you get a slightly different answer. Some answers ship without alt text on hero images. Some include tags by default even though tags will fragment a small archive into thin pages Google ignores. Some forget hreflang on listing pages. Some over-engineer with `@sanity/document-internationalization` when the site's articles don't even share topics across locales.
+Ask an AI to "add a blog to my WordPress site" and you get a different answer every time:
 
-This skill is what a careful, opinionated implementation looks like, written down once so you don't relitigate it on every project. The opinions have rationale inline. Where you disagree, override via the §0 intake. That is exactly what §0 is for.
+- some forget alt text on featured images;
+- some leave tag, date and author archives indexable, fragmenting a small archive into thin pages;
+- some install three plugins that each print their own schema;
+- some change permalinks and lose every old URL to a 404.
+
+This skill writes down what a careful, opinionated implementation looks like, once, so you don't relitigate it on every client site. The opinions have rationale inline. Where you disagree, override them through the §0 intake; that is exactly what §0 is for.
 
 ## Roadmap (loose)
 
-- Stack adapters as sibling skills: Payload, Contentful, MDX-only.
-- Better recommended defaults for FR / DE / ES / IT / PT locale combinations.
-- A small examples folder showing the spec applied to a real project (sanitized).
-- A short walkthrough video.
+- Integrations for AIOSEO and SEOPress in Blog Kit.
+- WP-CLI commands in Blog Kit for the legacy-content audit (category, featured image and alt text on every published post).
+- A sanitized example project showing the spec applied to a real site.
 
 ## Contributing
 
-Issues and PRs welcome. The spec is opinionated on purpose. Specifically interested in:
+Issues and PRs are welcome. The spec is opinionated on purpose. Especially useful:
 
-- Real-world results: "I shipped a blog with this and here is what broke or what I had to change."
-- Counter-examples where a default in §2 to §20 is provably wrong for a common case.
-- Translations of the questionnaire to other languages so non-English-speaking teams can use it natively.
-
-See `CONTRIBUTING.md` once added; in the meantime, open an issue first to discuss.
+- Real-world results: "I shipped a blog with this, and here is what broke or what I had to change."
+- Counter-examples where a default in §2–§18 is provably wrong for a common case.
+- Translations of Blog Kit's strings (`site-plugin/blog-kit/languages/`) and of the questionnaire.
 
 ## License
 
 MIT. See `LICENSE`.
 
-## Author
+## Credits
 
-Vladimir Terekhov · [BuildShipGrowRepeat](https://github.com/BuildShipGrowRepeat) · [attractgroup.com](https://attractgroup.com) · vv@attractgroup.com
+- WordPress adaptation: [mikenewperspectives2079](https://github.com/mikenewperspectives2079).
+- Based on the Next.js + Sanity `building-blog` skill by Vladimir Terekhov ([BuildShipGrowRepeat](https://github.com/BuildShipGrowRepeat) · [attractgroup.com](https://attractgroup.com)), MIT.
 
 ---
 
-Keywords for search: next.js sanity blog, claude code skill, claude skill, nextjs sanity cms, blog seo checklist, next-intl blog, nano banana blog images, gemini 3 pro image blog, sanity studio blog, hreflang next.js, blog jsonld blogposting, ai blog generator, opinionated blog spec.
+Keywords for search: wordpress blog, claude code skill, claude skill, wordpress seo blog, yoast seo blog setup, rank math blog setup, polylang blog, wpml blog, hreflang wordpress, blogposting schema wordpress, wordpress block theme blog, ai blog images, nano banana wordpress, gemini image wordpress, opinionated blog spec.

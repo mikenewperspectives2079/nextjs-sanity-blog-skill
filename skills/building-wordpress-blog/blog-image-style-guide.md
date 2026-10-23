@@ -1,6 +1,6 @@
 # Blog — Featured Image Style Guide (Universal Template)
 
-Used when generating hero images (via Nano Banana Pro / Gemini 3 Pro Image, or an equivalent text-to-image model) for blog articles.
+Used when generating hero images for blog articles: the WordPress featured images, via Nano Banana Pro (`gemini-3-pro-image`) or another Gemini image model (§20 of the technical spec), or an equivalent text-to-image model.
 
 The **structure** of this document — target audience, reference points, palette, aesthetic rules, composition, topic-reflection table, prompt template, worked examples — is the cross-project template. The **content** is per-project: walk the intake questions in §I and fill in every `[FILL: ...]` block. Keep this file as a self-contained brief so a human designer or an image model can use it without other context.
 
@@ -53,7 +53,7 @@ Walk these first. Use `AskUserQuestion` when available; otherwise list numerical
 
 ### Generator hookup
 
-15. **Image asset reuse strategy.** One image shared across all locales (default; locale-specific alt text in the uploader) or one image per locale (only when the imagery itself differs by language).
+15. **Image asset reuse strategy.** One image shared across all locales (default; the uploader creates one media item per language so each carries its own alt text) or one image per locale (only when the imagery itself differs by language).
 
 ---
 
@@ -189,9 +189,11 @@ Replace each placeholder block with a real article-specific example from your pr
 
 ## §XI. Notes for the generation script
 
-- One image per topic is shared across all locales by default. Alt text is localized per locale in the uploader.
-- Re-runs are idempotent: posts already carrying `heroImage.asset` are skipped. Pass `--force <slug>` to regenerate a single article.
-- Generated files are committed under `public/images/blog/<primary-slug>.<ext>` for git asset history alongside the Sanity upload (skip the local copy if §1.J3 of the technical spec = sanity-only).
+- The script is `scripts/generate-hero-images.mjs`. Prompts and alt text live in `hero-topics.json`, one entry per article; run `--dry-run` first.
+- One image per topic is shared across all locales by default. It is uploaded once per language, so each media item carries that language's alt text.
+- Re-runs are idempotent: posts that already have a featured image are skipped. Pass `--force <slug>` to regenerate a single article.
+- With `HERO_ARCHIVE_DIR` set, a copy of each image is saved as `<primary-slug>.<ext>` for design review and disaster recovery (§1.J3 of the technical spec). The site always serves the media library's converted WebP/AVIF sizes.
+- Images are generated at 16:9. WordPress crops the 800×450 card and 1200×630 social image from them, so keep the subject away from the extreme top and bottom edges.
 - If a topic sits between two rows of the topic table, pick the one that best matches the article's *primary question*, not its incidental vocabulary.
 - If the model keeps pushing the signature accent into dominance, remove the accent line from the prompt entirely for that generation rather than fighting it.
 - Human presence is strongly preferred over empty objects for roughly half of heroes — but always partial (hands, profiles, backs-of-heads) and never full frontal faces or recognizable portraits.

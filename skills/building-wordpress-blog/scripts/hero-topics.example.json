@@ -1,0 +1,17 @@
+{
+  "locales": ["en", "fr"],
+  "topics": [
+    {
+      "posts": { "en": "how-to-choose-a-trade-show-booth", "fr": 482 },
+      "prompt": "Editorial documentary photograph, 35mm lens, magazine-quality (think Monocle, Dezeen). 16:9 landscape. Gloved hands tightening an extruded aluminium frame joint on a half-built exhibition stand, kraft-wrapped fabric panels leaning in the background. Soft daylight from a skylight. Shallow-to-moderate depth of field. Restrained palette: concrete gray, brushed aluminium, warm kraft, with one small accent of #E4572E on a safety tag. Generous negative space on the left for text overlay. No text, no words, no letters, no numbers, no logos. No 3D render, no neon, no HDR, no full frontal faces.",
+      "alt": {
+        "en": "Gloved hands tightening an aluminium frame joint on a half-built exhibition stand",
+        "fr": "Mains gantées serrant un raccord de cadre en aluminium sur un stand d’exposition en montage"
+      },
+      "title": {
+        "en": "Exhibition stand under construction",
+        "fr": "Stand d’exposition en montage"
+      }
+    }
+  ]
+}
