@@ -241,7 +241,7 @@ function render_related_posts( $attributes = array(), $block = null ) {
 	}
 
 	$category = get_term( primary_category_id( $post_id ), 'category' );
-	$heading  = ( $category && ! is_wp_error( $category ) )
+	$heading  = ( $category instanceof \WP_Term && ! is_placeholder_category( $category ) )
 		? sprintf( label( 'more_from' ), $category->name )
 		: label( 'more_posts' );
 

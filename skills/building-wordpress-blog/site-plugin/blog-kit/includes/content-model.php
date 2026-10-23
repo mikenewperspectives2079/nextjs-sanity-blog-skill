@@ -59,6 +59,52 @@ add_action(
 );
 
 /*
+ * Legacy posts keep their old tag relationships, and many themes still print
+ * them (Post Terms block for tags, the_tags()). Those links would point at
+ * 404s, so tags read as empty on posts while tags are off.
+ */
+add_filter(
+	'get_the_terms',
+	static function ( $terms, $post_id, $taxonomy ) {
+		if ( 'post_tag' === $taxonomy && ! config( 'tags' ) && 'post' === get_post_type( $post_id ) ) {
+			return false;
+		}
+		return $terms;
+	},
+	10,
+	3
+);
+
+/*
+ * Author archives off (§1.C1): author names render as plain text, not as
+ * links to archives that 404. Covers the Post Author Name / Post Author
+ * blocks and classic the_author_posts_link().
+ */
+$blog_kit_unlink_author = static function ( $html, $block, $instance ) {
+	if ( config( 'author_archives' ) ) {
+		return $html;
+	}
+	$post_id   = $instance instanceof \WP_Block && ! empty( $instance->context['postId'] ) ? (int) $instance->context['postId'] : (int) get_the_ID();
+	$author_id = (int) get_post_field( 'post_author', $post_id );
+	if ( ! $author_id ) {
+		return $html;
+	}
+	// Only the link to the author archive; links in a bio stay.
+	$url = get_author_posts_url( $author_id );
+	$alt = array_unique( array( preg_quote( $url, '#' ), preg_quote( esc_url( $url ), '#' ) ) );
+	return (string) preg_replace( '#<a\b[^>]*\bhref=(["\'])(?:' . implode( '|', $alt ) . ')\1[^>]*>(.*?)</a>#is', '$2', (string) $html );
+};
+add_filter( 'render_block_core/post-author-name', $blog_kit_unlink_author, 10, 3 );
+add_filter( 'render_block_core/post-author', $blog_kit_unlink_author, 10, 3 );
+add_filter(
+	'the_author_posts_link',
+	static function ( $link ) {
+		return config( 'author_archives' ) ? $link : esc_html( get_the_author() );
+	}
+);
+unset( $blog_kit_unlink_author );
+
+/*
  * §0.K — Comments off for posts: close them, hide any old ones, and stop
  * advertising comment feeds.
  */
@@ -85,9 +131,85 @@ add_action(
 			2
 		);
 		add_filter( 'feed_links_show_comments_feed', '__return_false' );
+
+		// Block themes: the Comments block queries comments itself, so drop it on posts.
+		add_filter(
+			'render_block_core/comments',
+			static function ( $html, $block, $instance ) {
+				$post_id = $instance instanceof \WP_Block && ! empty( $instance->context['postId'] ) ? (int) $instance->context['postId'] : (int) get_the_ID();
+				return 'post' === get_post_type( $post_id ) ? '' : $html;
+			},
+			10,
+			3
+		);
+		// Classic themes: an empty comments template on posts.
+		add_filter(
+			'comments_template',
+			static function ( $template ) {
+				return is_singular( 'post' ) ? __DIR__ . '/no-comments.php' : $template;
+			}
+		);
 	},
 	100
 );
+
+/*
+ * §7.10 — Setting a featured image over the REST API saves the whole post, so
+ * WordPress bumps its modified date. Backfilling hero images on old posts
+ * would then show "Updated <today>" everywhere and refresh every sitemap
+ * lastmod: a fake freshness signal. When a REST update of a published post
+ * changes nothing but the featured image, keep the modified date.
+ */
+final class Image_Only_Update {
+
+	/** @var int Post being updated with only a featured image change, or 0. */
+	private static $post_id = 0;
+
+	/**
+	 * Notes image-only updates of published posts.
+	 *
+	 * @param \stdClass        $prepared Post about to be saved.
+	 * @param \WP_REST_Request $request  Request.
+	 * @return \stdClass
+	 */
+	public static function detect( $prepared, $request ) {
+		self::$post_id = 0;
+		if ( is_wp_error( $prepared ) ) {
+			return $prepared;
+		}
+		$post_id = isset( $prepared->ID ) ? (int) $prepared->ID : 0;
+		if ( ! config( 'keep_modified_on_image' ) || ! $post_id || 'publish' !== get_post_status( $post_id ) || ! $request->has_param( 'featured_media' ) ) {
+			return $prepared;
+		}
+		$sent  = array_keys( array_merge( (array) $request->get_query_params(), (array) $request->get_body_params(), (array) $request->get_json_params() ) );
+		$extra = array_diff( $sent, array( 'featured_media', 'id', 'context', '_fields', '_locale', '_method', 'rest_route' ) );
+		if ( ! $extra ) {
+			self::$post_id = $post_id;
+		}
+		return $prepared;
+	}
+
+	/**
+	 * Restores the stored modified date for the noted post.
+	 *
+	 * @param array $data    Post data about to be written.
+	 * @param array $postarr Raw post data.
+	 * @return array
+	 */
+	public static function keep_modified( $data, $postarr ) {
+		if ( self::$post_id && isset( $postarr['ID'] ) && (int) $postarr['ID'] === self::$post_id ) {
+			$old = get_post( self::$post_id );
+			if ( $old ) {
+				$data['post_modified']     = $old->post_modified;
+				$data['post_modified_gmt'] = $old->post_modified_gmt;
+			}
+			self::$post_id = 0;
+		}
+		return $data;
+	}
+}
+add_filter( 'rest_pre_insert_post', array( Image_Only_Update::class, 'detect' ), 20, 2 );
+add_filter( 'wp_insert_post_data', array( Image_Only_Update::class, 'keep_modified' ), 99, 2 );
 
 /**
  * §3.5 — Publish guard. Blocks the move to "publish" or "future" through the

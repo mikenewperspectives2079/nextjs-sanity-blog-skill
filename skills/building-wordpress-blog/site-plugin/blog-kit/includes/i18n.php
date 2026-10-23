@@ -25,6 +25,58 @@ function multilingual_plugin() {
 	return '';
 }
 
+/**
+ * URL slugs of the active languages ("en", "fr"…), or an empty array.
+ *
+ * @return string[]
+ */
+function language_slugs() {
+	static $slugs = null;
+	if ( null === $slugs ) {
+		$slugs = array();
+		if ( function_exists( 'pll_languages_list' ) ) {
+			$slugs = array_map( 'strval', (array) pll_languages_list( array( 'fields' => 'slug' ) ) );
+		} elseif ( has_filter( 'wpml_active_languages' ) ) {
+			$slugs = array_map( 'strval', array_keys( (array) apply_filters( 'wpml_active_languages', null ) ) );
+		}
+	}
+	return $slugs;
+}
+
+/**
+ * URL slug of a post's language ("fr"), or '' when unknown or monolingual.
+ *
+ * @param int $post_id Post ID.
+ * @return string
+ */
+function post_language( $post_id ) {
+	$plugin = multilingual_plugin();
+	if ( 'polylang' === $plugin ) {
+		return (string) pll_get_post_language( (int) $post_id );
+	}
+	if ( 'wpml' === $plugin ) {
+		$details = apply_filters( 'wpml_post_language_details', null, (int) $post_id );
+		return is_array( $details ) ? (string) ( $details['language_code'] ?? '' ) : '';
+	}
+	return '';
+}
+
+/**
+ * URL slug of the default language, or '' when monolingual.
+ *
+ * @return string
+ */
+function default_language() {
+	$plugin = multilingual_plugin();
+	if ( 'polylang' === $plugin ) {
+		return (string) pll_default_language();
+	}
+	if ( 'wpml' === $plugin ) {
+		return (string) apply_filters( 'wpml_default_language', null );
+	}
+	return '';
+}
+
 /*
  * §6.2 — On a post with no translation, the language switcher links to the
  * blog index in the target language, not to that language's homepage.
@@ -143,21 +195,15 @@ add_action(
 add_action(
 	'rest_api_init',
 	static function () {
-		$plugin = multilingual_plugin();
-		if ( ! $plugin ) {
+		if ( ! multilingual_plugin() ) {
 			return;
 		}
 		register_rest_field(
 			'post',
 			'blog_kit_lang',
 			array(
-				'get_callback' => static function ( $post ) use ( $plugin ) {
-					$post_id = (int) $post['id'];
-					if ( 'polylang' === $plugin ) {
-						return (string) pll_get_post_language( $post_id );
-					}
-					$details = apply_filters( 'wpml_post_language_details', null, $post_id );
-					return is_array( $details ) ? (string) ( $details['language_code'] ?? '' ) : '';
+				'get_callback' => static function ( $post ) {
+					return post_language( (int) $post['id'] );
 				},
 				'schema'       => array(
 					'description' => 'Language of the post (Blog Kit).',

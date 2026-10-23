@@ -3,7 +3,7 @@
  * Plugin Name:       Blog Kit
  * Description:       Blog logic for this site, built from the building-blog spec: table of contents, updated dates, reading time, related posts, category navigation, FAQ schema, publish checks, archive hygiene and image formats.
  * Version:           1.0.0
- * Requires at least: 6.8
+ * Requires at least: 6.9
  * Requires PHP:      7.4
  * License:           MIT
  * Text Domain:       blog-kit
@@ -62,6 +62,8 @@ function config( $key = null ) {
 			'switcher_fallback'       => true,
 			'paginated_hreflang'      => true,
 			'strict_404_guessing'     => true,
+			'redirect_old_urls'       => true,
+			'keep_modified_on_image'  => true,
 		);
 
 		$file   = __DIR__ . '/config.php';
@@ -114,14 +116,65 @@ function label( $key ) {
 }
 
 /**
- * Whether a category is WordPress's placeholder ("Uncategorized"), including
- * the per-language copies multilingual plugins create ("uncategorized-fr").
+ * Lower-cased names WordPress gives its placeholder category: "Uncategorized"
+ * plus its translation in the site, visitor/editor and every active language
+ * ("Non classé", "Allgemein", "Sin categoría"…).
+ *
+ * @return string[]
+ */
+function placeholder_category_names() {
+	static $names = null;
+	if ( null !== $names ) {
+		return $names;
+	}
+
+	$locales = array( get_locale(), determine_locale() );
+	if ( function_exists( 'pll_languages_list' ) ) {
+		$locales = array_merge( $locales, (array) pll_languages_list( array( 'fields' => 'locale' ) ) );
+	} elseif ( has_filter( 'wpml_active_languages' ) ) {
+		foreach ( (array) apply_filters( 'wpml_active_languages', null ) as $language ) {
+			if ( ! empty( $language['default_locale'] ) ) {
+				$locales[] = $language['default_locale'];
+			}
+		}
+	}
+
+	$lower = static function ( $text ) {
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( trim( $text ), 'UTF-8' ) : strtolower( trim( $text ) );
+	};
+
+	$names = array( 'uncategorized' );
+	foreach ( array_unique( array_filter( $locales ) ) as $locale ) {
+		$current = determine_locale() === $locale;
+		if ( ! $current && ! file_exists( WP_LANG_DIR . "/{$locale}.l10n.php" ) && ! file_exists( WP_LANG_DIR . "/{$locale}.mo" ) ) {
+			continue; // No core translation installed: the name is the English one.
+		}
+		$switched = ! $current && switch_to_locale( $locale );
+		$names[]  = $lower( __( 'Uncategorized' ) ); // phpcs:ignore WordPress.WP.I18n.MissingArgDomain -- core's own string.
+		if ( $switched ) {
+			restore_previous_locale();
+		}
+	}
+
+	$names = array_values( array_unique( $names ) );
+	return $names;
+}
+
+/**
+ * Whether a category is still WordPress's placeholder ("Uncategorized"), in
+ * any language, including the per-language copies multilingual plugins
+ * create. Judged by name: a category renamed to a real topic counts as real
+ * even if its slug is still "uncategorized" (rename the slug too, §3.3).
  *
  * @param \WP_Term $term Category.
  * @return bool
  */
 function is_placeholder_category( $term ) {
-	return $term instanceof \WP_Term && ( 'uncategorized' === $term->slug || 0 === strpos( $term->slug, 'uncategorized-' ) );
+	if ( ! $term instanceof \WP_Term ) {
+		return false;
+	}
+	$name = function_exists( 'mb_strtolower' ) ? mb_strtolower( trim( $term->name ), 'UTF-8' ) : strtolower( trim( $term->name ) );
+	return in_array( $name, placeholder_category_names(), true );
 }
 
 /**

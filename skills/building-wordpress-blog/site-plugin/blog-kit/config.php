@@ -90,4 +90,12 @@ return array(
 
 	// §7.11 — Deleted posts 404 instead of redirecting to a similar slug.
 	'strict_404_guessing'     => true,
+
+	// D1 / §5.3 — After the structure gains a front (/%postname%/ → /blog/%postname%/),
+	// 404s at an old post or category URL 301 to the moved page. Only acts on 404s.
+	'redirect_old_urls'       => true,
+
+	// §7.10 — Setting only a featured image on a published post (e.g. the hero
+	// script backfilling old posts) doesn't bump its modified date.
+	'keep_modified_on_image'  => true,
 );

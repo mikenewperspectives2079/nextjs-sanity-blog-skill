@@ -79,6 +79,32 @@ add_action(
 );
 
 /**
+ * Published posts a category page lists: its own plus those of its child
+ * categories (a parent hub whose posts all sit in children isn't thin).
+ *
+ * @param \WP_Term $term Category.
+ * @return int
+ */
+function category_post_count( \WP_Term $term ) {
+	static $cache = array();
+	if ( isset( $cache[ $term->term_id ] ) ) {
+		return $cache[ $term->term_id ];
+	}
+	$count    = (int) $term->count;
+	$children = get_term_children( (int) $term->term_id, 'category' );
+	if ( is_array( $children ) ) {
+		foreach ( $children as $child_id ) {
+			$child = get_term( (int) $child_id, 'category' );
+			if ( $child instanceof \WP_Term ) {
+				$count += (int) $child->count;
+			}
+		}
+	}
+	$cache[ $term->term_id ] = $count;
+	return $count;
+}
+
+/**
  * Whether a term is a category below the configured post-count threshold.
  *
  * @param mixed $term Term object (or anything).
@@ -86,7 +112,7 @@ add_action(
  */
 function is_thin_category( $term ) {
 	$min = (int) config( 'category_noindex_below' );
-	return $min > 0 && $term instanceof \WP_Term && 'category' === $term->taxonomy && (int) $term->count < $min;
+	return $min > 0 && $term instanceof \WP_Term && 'category' === $term->taxonomy && category_post_count( $term ) < $min;
 }
 
 /**

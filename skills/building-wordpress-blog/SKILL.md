@@ -115,13 +115,13 @@ Use the plan template at the end of §0. One page: phases, locked-in scope, out-
 
 Work on a local copy or staging, never directly on production. Back up first (`wp db export`, or the host's backup). Then, in this order:
 
-1. **Core settings** (§3–§5): permalinks (with the §5.3 redirect map if posts already exist), Reading, Discussion, default category, attachment pages, users.
+1. **Core settings** (§3–§5): permalinks (with the §5.3 redirect map for posts and categories if content already exists), Reading, Discussion, default category, attachment pages, users.
 2. **SEO plugin settings** (§7.1).
 3. **Multilingual setup** (§6), if any.
 4. **Blog Kit** (§18.3):
    1. Copy `site-plugin/blog-kit/` to `wp-content/plugins/<project>-blog/` and set the plugin name in the header; keep `Update URI: false`.
    2. Fill `config.php` from §1.
-   3. Activate it.
+   3. Activate it (WordPress 6.9+).
    4. Regenerate image sizes: `wp media regenerate --image_size=blog-og --yes`, and the same for `blog-card`.
    5. With Yoast, run `wp yoast index --reindex`.
 5. **Templates** (§8–§10, §9.4): blog index, single post, category, 404, card pattern. Check for Site Editor customizations first; a customized copy in the database wins over the theme file.
@@ -147,9 +147,10 @@ Code changes go through the project's normal deploy, never by editing files on t
   - the `og:image` crop and alt;
   - hero `fetchpriority="high"` with a WebP/AVIF `srcset`.
 - **Check status codes:**
-  - tag, date and author archives and `/?author=1` → 404;
+  - tag, date and author archives, `/?author=1`, `?m=` and post comment feeds → 404;
   - a deleted or unknown post slug → 404, not a redirect;
-  - old URLs → one 301 (§5.3).
+  - old post and category URLs → one 301 (§5.3).
+- **Check for links to those 404s**: no tag lists or linked author names on posts, none in menus or widgets.
 - **Try to publish a draft without a featured image.** Blog Kit must refuse.
 - **Run** the Rich Results Test or Schema Markup Validator on a sample post, Lighthouse mobile, and `axe-core`.
 - **Confirm** "Discourage search engines" is off on production.

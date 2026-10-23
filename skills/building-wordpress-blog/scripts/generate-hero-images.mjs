@@ -11,12 +11,16 @@
  *      own alt text, attaches it to the post and sets it as the featured image.
  *
  * Usage:
- *   node generate-hero-images.mjs [topics.json] [--dry-run] [--force] [slug-or-id ...]
+ *   node generate-hero-images.mjs [topics.json] [--dry-run] [--force] [slug-or-id ... | --all]
  *
- *   topics.json   defaults to ./hero-topics.json
+ *   topics.json   defaults to hero-topics.json next to this script, then in the current folder
  *   --dry-run     resolve posts and print the plan; no image generation, no uploads
- *   --force       regenerate even when posts already have a featured image
+ *   --force       replace existing featured images; needs explicit slugs/IDs, or --all
  *   slug-or-id    only process topics whose primary-language post matches
+ *
+ * On multilingual sites each post found by slug must be in the topic's language
+ * (checked through Blog Kit's `blog_kit_lang` REST field), and two languages may
+ * never resolve to the same post.
  *
  * Environment:
  *   WP_URL               site URL, e.g. https://staging.example.com (no trailing slash needed)
@@ -30,9 +34,11 @@
  *
  * Requires Node 20+ (global fetch). No npm dependencies.
  */
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 const MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-3-pro-image";
 const IMAGE_SIZE = process.env.GEMINI_IMAGE_SIZE || "2K";
@@ -45,7 +51,10 @@ const STATUSES = "publish,future,draft,pending,private";
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith("--")));
 const positional = args.filter((a) => !a.startsWith("--"));
-const topicsFile = positional[0] && positional[0].endsWith(".json") ? positional.shift() : "hero-topics.json";
+const besideScript = resolve(dirname(fileURLToPath(import.meta.url)), "hero-topics.json");
+const topicsFile = positional[0] && positional[0].endsWith(".json")
+  ? resolve(positional.shift())
+  : existsSync(besideScript) ? besideScript : resolve("hero-topics.json");
 const only = positional;
 const dryRun = flags.has("--dry-run");
 const force = flags.has("--force");
@@ -53,6 +62,12 @@ const force = flags.has("--force");
 function fail(message) {
   console.error(`\n✗ ${message}`);
   process.exit(1);
+}
+
+const unknownFlags = [...flags].filter((flag) => !["--dry-run", "--force", "--all"].includes(flag));
+if (unknownFlags.length) fail(`Unknown option(s): ${unknownFlags.join(", ")}. See the header of this script.`);
+if (force && !only.length && !flags.has("--all")) {
+  fail("--force replaces existing featured images. Name the topics to regenerate (slugs or IDs), or add --all.");
 }
 
 for (const name of ["WP_URL", "WP_USER", "WP_APP_PASSWORD"]) {
@@ -93,21 +108,50 @@ async function wp(route, { params, method = "GET", headers = {}, body } = {}) {
 
 const FIELDS = "id,slug,status,featured_media,link,blog_kit_lang";
 
-/** Finds a post by numeric ID or slug, in any status. Returns null when it doesn't exist. */
-async function findPost(ref, locale) {
+let warnedNoLanguage = false;
+
+/**
+ * Finds one language's post by numeric ID or slug, in any status.
+ * Returns { post } or, when there is nothing to update, { post: null, reason }.
+ * On multilingual sites the post must be in `locale`: a slug that only exists
+ * in another language is skipped, an ID that points at another language fails.
+ */
+async function findPost(ref, locale, multilingual) {
+  const wrongLanguage = (post) => {
+    if (multilingual && post.blog_kit_lang === undefined && !warnedNoLanguage) {
+      warnedNoLanguage = true;
+      console.warn("  ! posts have no blog_kit_lang field (is Blog Kit active?) — languages can't be checked");
+    }
+    return multilingual && Boolean(post.blog_kit_lang) && post.blog_kit_lang !== locale;
+  };
+
   if (typeof ref === "number" || /^\d+$/.test(String(ref))) {
+    let post;
     try {
-      return await wp(`/wp/v2/posts/${ref}`, { params: { context: "edit", _fields: FIELDS } });
+      post = await wp(`/wp/v2/posts/${ref}`, { params: { context: "edit", _fields: FIELDS } });
     } catch (error) {
-      if (String(error.message).includes("404")) return null;
+      if (String(error.message).includes("404")) return { post: null, reason: `no post ${ref}` };
       throw error;
     }
+    if (wrongLanguage(post)) throw new Error(`Post ${ref} is in "${post.blog_kit_lang}", not "${locale}". Fix the topic.`);
+    return { post };
   }
-  const found = await wp("/wp/v2/posts", { params: { slug: String(ref), status: STATUSES, context: "edit", _fields: FIELDS } });
-  if (found.length <= 1) return found[0] || null;
-  const inLocale = found.filter((post) => post.blog_kit_lang === locale);
-  if (inLocale.length === 1) return inLocale[0];
-  throw new Error(`Slug "${ref}" matches ${found.length} posts; use the numeric post ID for ${locale}.`);
+
+  const params = { slug: String(ref), status: STATUSES, context: "edit", _fields: FIELDS };
+  if (multilingual) params.lang = locale; // Polylang Pro and WPML filter by it; elsewhere it is ignored.
+  const found = await wp("/wp/v2/posts", { params });
+  const candidates = found.filter((post) => !wrongLanguage(post));
+  if (candidates.length === 1) return { post: candidates[0] };
+  if (candidates.length > 1) {
+    const exact = candidates.filter((post) => post.blog_kit_lang === locale);
+    if (exact.length === 1) return { post: exact[0] };
+    throw new Error(`Slug "${ref}" matches ${candidates.length} posts; use the numeric post ID for ${locale}.`);
+  }
+  if (found.length) {
+    const languages = [...new Set(found.map((post) => post.blog_kit_lang))].join(", ");
+    return { post: null, reason: `post "${ref}" is in ${languages}, not ${locale}` };
+  }
+  return { post: null, reason: `no post "${ref}"` };
 }
 
 /** Detects the real image type from magic bytes (models sometimes mislabel). */
@@ -180,6 +224,7 @@ async function main() {
   const config = JSON.parse(await readFile(resolve(topicsFile), "utf8"));
   const locales = config.locales || ["en"];
   const primary = locales[0];
+  const multilingual = locales.length > 1;
   const topics = (config.topics || []).filter((topic) => !only.length || only.includes(String(topic.posts?.[primary])));
 
   if (only.length && topics.length !== only.length) {
@@ -205,10 +250,14 @@ async function main() {
       const targets = [];
       for (const locale of locales) {
         if (topic.posts?.[locale] === undefined) continue;
-        const post = await findPost(topic.posts[locale], locale);
+        const { post, reason } = await findPost(topic.posts[locale], locale, multilingual);
         if (!post) {
-          console.log(`  ↷ ${locale}: no post "${topic.posts[locale]}" — skipping that language`);
+          console.log(`  ↷ ${locale}: ${reason} — skipping that language`);
           continue;
+        }
+        const clash = targets.find((target) => target.post.id === post.id);
+        if (clash) {
+          throw new Error(`"${clash.locale}" and "${locale}" both point at post ${post.id}; each language needs its own post.`);
         }
         targets.push({ locale, post });
         console.log(`  • ${locale}: post ${post.id} (${post.status})${post.featured_media ? `, has featured image ${post.featured_media}` : ""}`);

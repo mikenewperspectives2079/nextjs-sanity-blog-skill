@@ -12,7 +12,7 @@ Universal technical specification for adding a blog to a WordPress site (or fini
 4. **Know where things are stored.** Code (theme, Blog Kit) lives in files. Settings, menus, SEO-plugin options and Site Editor customizations live in the database. A template customized in the Site Editor overrides the theme file of the same name, so check for a customized copy before editing a template file (Site Editor → Templates, or `GET /wp/v2/templates`: `"source": "custom"`).
 5. **Never practise on production.** Work on a local copy or staging. Apply database-side changes with WP-CLI when available; otherwise write them up as an admin checklist for a human. Production gets a deploy plus the same checklist.
 
-**Treat plugin and library specifics as guidance, not gospel.** This spec was verified in October 2026 against WordPress 7.1.3, Yoast SEO 28.7, Rank Math 1.0.280, Polylang 3.9.1, WPML 4.9 and the Gemini API: by reading their source and by running Blog Kit on a WordPress 7.1.3 test site with each of them. They all change faster than this file. Before implementing a section that touches one of them, pull current docs (via `context7` if available, otherwise `WebFetch` on the official site) and let upstream win on conflicts. Re-verify in particular:
+**Treat plugin and library specifics as guidance, not gospel.** This spec was checked in October 2026 against WordPress 7.1.3, Yoast SEO 28.7, Rank Math 1.0.280, Polylang 3.9.1, WPML 4.9 and the Gemini API. Blog Kit ran on a WordPress 7.1.3 test site with no SEO plugin, with Yoast, with Rank Math, and with Polylang (free). WPML was checked by reading its 4.9.5 code and documentation only, not run. The hero script (§20) ran against a local stand-in that mimics the Gemini API's documented requests and responses, not against Google. They all change faster than this file. Before implementing a section that touches one of them, pull current docs (via `context7` if available, otherwise `WebFetch` on the official site) and let upstream win on conflicts. Re-verify in particular:
 
 - §3, §12, §13: core block attributes (Time to Read, Post Date, Details, Breadcrumbs) and `supports.autoRegister` (WordPress 7.0+)
 - §5: permalink and rewrite behaviour (`with_front`, category base)
@@ -83,7 +83,7 @@ E5. **Related posts.** Automatic: same category, newest first, topped up with th
 
 #### F. SEO surface (4)
 
-F1. **SEO plugin.** Detected, or install the agency's standard: Yoast SEO or Rank Math, never both. AIOSEO, SEOPress and The SEO Framework can satisfy this spec too, but Blog Kit's integrations target Yoast and Rank Math. The SEO Framework needs its paid Articles extension for Article schema.
+F1. **SEO plugin.** Detected, or install the agency's standard: Yoast SEO or Rank Math, never both. AIOSEO, SEOPress and The SEO Framework can satisfy this spec too, but Blog Kit's integrations target Yoast and Rank Math: with another plugin, Blog Kit's OG crop preference, image alt tags, thin-category noindex and FAQ schema aren't applied, and those must be set up in that plugin. The SEO Framework needs its paid Articles extension for Article schema.
 F2. **Structured data scope.** BlogPosting and BreadcrumbList on every post (SEO plugin), plus FAQPage for posts with an FAQ section (Blog Kit). Google stopped showing FAQ rich results for every site on 2026-05-07; the markup is still valid and harmless. Keep or drop it? Any other schemas needed (HowTo rich results are also retired; Recipe, VideoObject)?
 F3. **OG image strategy.** Featured image cropped to 1200×630 (Blog Kit's `blog-og` size; recommended) or a separate social image set per post in the SEO plugin.
 F4. **Feed content.** Full text (WordPress default; recommended) or excerpt only (Settings → Reading → "For each post in a feed, include").
@@ -102,7 +102,7 @@ H2. **Consent model.** Cookieless tool (no banner needed), consent-gated (loads 
 
 #### I. Content authoring & workflow (3)
 
-I1. **Editor.** Block editor (recommended), Classic Editor plugin (legacy), or a page builder for posts (strongly discouraged: heavy markup, no reliable ToC/FAQ/schema).
+I1. **Editor.** Block editor (recommended), Classic Editor plugin (legacy), or a page builder for posts (strongly discouraged: heavy markup, no reliable ToC/FAQ/schema). Blog Kit's heading anchors and ToC also work on Classic Editor posts; the FAQ section (§13), the block list (C6) and the publish guard (§3.5) need the block editor.
 I2. **AI drafting.** Will AI agents create drafts through the REST API? If yes: a dedicated user whose role cannot publish, plus an Application Password (§16).
 I3. **Scheduled publishing.** WordPress core scheduling is built in. Is a real server cron available? It is recommended, to avoid "Missed schedule" (§16).
 
@@ -291,7 +291,10 @@ Excluded by default: code, preformatted, video, embeds, pullquote, file, custom 
 
 - **Name** (translated per language by the multilingual plugin), **slug**, and **description**. The description is required: one or two sentences, shown on the category page and used as its meta description (§7.5).
 - **Order**: Blog Kit `category_order` (a list of slugs); unlisted categories follow alphabetically.
-- **"Uncategorized" must go.** Rename it to a real category or move its posts and delete it, then set Settings → Writing → Default Post Category to a real category. Blog Kit refuses to publish posts in it, including the per-language copies multilingual plugins create (`uncategorized-fr`), and hides it from the category navigation.
+- **"Uncategorized" must go.** Either rename it to a real category, changing **both its name and its slug**, or move its posts and delete it. Then set Settings → Writing → Default Post Category to a real category.
+  - Blog Kit recognises the placeholder by its **name** in every site language ("Uncategorized", "Non classé"…), so the per-language copies multilingual plugins create (`uncategorized-fr`) count too.
+  - It refuses to publish posts in it, hides it from the category navigation, and titles related posts "More from the blog" rather than "More from Uncategorized".
+  - A slug-only rename leaves the placeholder in place; a name-only rename leaves `/category/uncategorized/` in the URL.
 - Category count and editability come from §1.C2 and §1.C4.
 
 ### 3.4 Authors
@@ -304,7 +307,11 @@ Authors are WordPress users. The byline is the user's **Display name publicly as
 | Display name only (baseline) | Real users with a proper display name. | Off (404) |
 | Full profiles | Plus Biographical Info, a profile photo (Gravatar or a local-avatar plugin) and social profile URLs in the SEO plugin's user fields (they become `sameAs`). | On: indexable author pages, Blog Kit `author_archives => true` |
 
-When author pages are off, the SEO plugin's Person node has no `url` (Yoast omits it once author archives are disabled). Usernames still leak through `/wp-json/wp/v2/users` and `/?author=1`. Blog Kit 404s the latter; restrict the REST users endpoint with the security plugin if that matters to the client.
+When author pages are off:
+
+- the SEO plugin's Person node has no `url` (Yoast omits it once author archives are disabled);
+- Blog Kit prints author names as plain text: it removes the archive link from the Post Author Name and Post Author blocks and from `the_author_posts_link()`, and leaves other links (in a bio, say) alone;
+- usernames still leak through `/wp-json/wp/v2/users` and `/?author=1`. Blog Kit 404s the latter; restrict the REST users endpoint with the security plugin if that matters to the client.
 
 ### 3.5 Publish guard (Blog Kit)
 
@@ -381,18 +388,25 @@ Multilingual sites add the language directory: `/en/blog/<slug>/`, `/fr/blog/<sl
 
 ### 5.3 Changing an existing permalink structure
 
-Verified on WordPress 7.1.3: after switching from `/%postname%/` to `/blog/%postname%/`, the old URLs return **404**. WordPress does **not** redirect them, because a bare `/<slug>/` is parsed as a page request and the 404 slug-guesser only matches post names.
+Verified on WordPress 7.1.3: after switching from `/%postname%/` to `/blog/%postname%/`, the old URLs return **404**. WordPress does **not** redirect them, because a bare `/<slug>/` is parsed as a page request and the 404 slug-guesser only matches post names. **Category URLs move too** (`/category/<slug>/` → `/blog/category/<slug>/`), and so does every custom post type registered with `with_front` (§5.2).
 
-1. Before switching, export every live post URL: the sitemap, plus top landing pages from Search Console.
+1. Before switching, export every live URL that will move: the post and category sitemaps, any `with_front` custom post type sitemaps, and the top landing pages from Search Console.
 2. Switch on staging, then generate a 1:1 map from old URL to new URL: same slug, new prefix.
 3. Implement the map as 301s:
    - Rank Math's Redirections module (free);
    - Yoast SEO Premium's redirect manager;
    - the free "Redirection" plugin;
    - or server rules, which are fastest.
-   Prefer a single regex rule when the mapping is uniform, e.g. `^/(?!blog/|wp-|feed)([^/]+)/?$` → `/blog/$1/`. Test it against page slugs first, so pages aren't caught.
-4. Crawl the old URL list on staging: every one must 301 once to a 200.
-5. After deploy, resubmit sitemaps in Search Console and watch the Pages report for two weeks.
+
+   Use explicit rules, one per URL or one per section with a fixed prefix. Don't use a catch-all regex such as `^/([^/]+)/?$` → `/blog/$1/`: it also catches pages, attachment pages and endpoints that plugins add later.
+4. **Safety net: Blog Kit's `redirect_old_urls`** (on by default) catches what the map misses. It acts only on a 404, and only when the site's structure has a front such as `/blog/`:
+   - `/<slug>/` (with or without a language prefix) → the published post with exactly that slug;
+   - `/category/<…>/<slug>/` and its `/page/N/` → that category page (default category base only);
+   - query strings such as `utm_*` are kept.
+
+   It runs after core's own redirects and after redirect managers (Rank Math: on `wp`), so an explicit rule always wins. It is a safety net, not the map: it can't know about renamed slugs or merged posts.
+5. Crawl the old URL list (posts and categories) on staging: every one must 301 once to a 200.
+6. After deploy, resubmit sitemaps in Search Console and watch the Pages report for two weeks.
 
 New sites and sites without posts skip this subsection.
 
@@ -466,7 +480,7 @@ Set these in the plugin UI, or with WP-CLI where noted. They cover most of this 
 | Breadcrumbs (§9.1) | Settings → Advanced → Breadcrumbs: show Blog page; **Content types → Posts → "Breadcrumbs title / taxonomy" = Category** (`post_types-post-maintax=category`; defaults to *none*) | General → Breadcrumbs: **enable** (off by default — and BreadcrumbList schema is only output when enabled), "Show Blog Page" on |
 | Category pages indexable | Taxonomies → Categories: show in search results | Titles & Meta → Categories: index |
 | Tags noindex (§4) | Taxonomies → Tags: hide from search results (`noindex-tax-post_tag`) | Default already noindex |
-| Author / date archives | Settings → Advanced → Author archives **off**, Date archives **off** (`disable-author`, `disable-date`). This also drops the author `url` from the Person node, which would otherwise point at a page Blog Kit 404s. Blog Kit's 404 runs before Yoast's homepage redirect. | Titles & Meta → Authors → Author Archives **disabled**; Misc → Date Archives disabled (default). Blog Kit's 404 runs first. |
+| Author / date archives | Settings → Advanced → Author archives **off** (`disable-author`): this also drops the author `url` from the Person node, which would otherwise point at a page Blog Kit 404s. Leave Date archives **on** (`disable-date` = false): with it off, Yoast 301s every `?m=` / `?year=` URL to the homepage before Blog Kit can answer 404. Blog Kit 404s date archives itself. | Titles & Meta → Authors → Author Archives **disabled**; Misc → Date Archives disabled (default). Blog Kit's 404 runs first. |
 | Attachment URLs | Advanced → Media pages: off (redirect) | Titles & Meta → Media: Redirect Attachments |
 | Meta description template for posts | `%%excerpt%%` | `%excerpt%` |
 | Feed cleanup (comments off) | Settings → Advanced → Crawl optimization: remove global and post comment feeds | n/a (Blog Kit stops advertising comment feeds) |
@@ -600,7 +614,7 @@ Sitemap: https://<domain from §1>/sitemap_index.xml
 
 - WordPress serves RSS 2.0 at `/feed/` (per language: `/fr/feed/`) and advertises it in `<head>` (`automatic-feed-links`, automatic in block themes). Atom also exists at `/feed/atom/` but isn't advertised; that's fine.
 - Content per §1.F4: Settings → Reading → "For each post in a feed, include: Full text" (`rss_use_excerpt = 0`).
-- With comments off, the comments feed must not be advertised. Blog Kit uses `feed_links_show_comments_feed`; Yoast's crawl-optimization toggles also remove the comment feeds.
+- With comments off, the comments feed must not be advertised. Blog Kit uses `feed_links_show_comments_feed`, and a post's comment feed (`/blog/<slug>/feed/`) returns 404. With Yoast's crawl-optimization toggle "Remove post comment feeds" on (§7.1), Yoast 301s those URLs to the post first; either answer is fine.
 - Category feeds exist automatically and are fine. Tag and author feeds 404 with their archives.
 
 ### 7.10 "Updated on" date
@@ -608,6 +622,7 @@ Sitemap: https://<domain from §1>/sitemap_index.xml
 - Shown visibly **only** when the post was modified more than 24 hours after publishing (Blog Kit's Updated block, `updated_threshold_hours`). A typo fix on launch day must not trigger it.
 - Format: `Published <date> · Updated <date>`.
 - `dateModified` in JSON-LD comes from the same field, `post_modified_gmt`. Yoast omits it when modified ≤ published. When the visible "Updated" date shows, it is the same date as `dateModified`.
+- **Adding a featured image isn't an update.** A REST save of a published post that sends only `featured_media` (the hero script backfilling old posts, §20) keeps its modified date (Blog Kit `keep_modified_on_image`). Any other change still counts.
 
 ### 7.11 Unpublish, deletion and slug changes
 
@@ -859,7 +874,9 @@ WordPress 7.1 still has no core Table of Contents block (it remains experimental
 
 - **Conditional.** It renders only when the post has ≥N H2 headings AND ≥M words, per §1.E4 (`toc_min_h2`, `toc_min_words`). Below that it renders nothing. Words are counted with core's Time to Read counter, which handles languages counted in characters (Chinese, Japanese).
 - **Content.** H2 entries only, no H3 nesting, which prevents clutter from AI over-nesting. Each entry links to the heading's id (§9.2).
-- **Markup.** `<nav aria-labelledby>` → `<details>` → `<summary>` ("On this page") → `<ol>`. It is collapsed in the HTML, so mobile has no layout shift; a 1 KB deferred script opens it on screens ≥1024 px.
+- **Markup.** `<nav aria-labelledby>` → `<details>` → `<summary>` ("On this page") → `<ol>`. It is collapsed in the HTML, so mobile has no layout shift. On screens ≥1024 px a one-line inline script right after the `<nav>` opens it before first paint, so desktop has none either; the 1 KB deferred `toc.js` keeps it in sync on resize.
+- **Legacy content.** Headings in Classic Editor posts (HTML without blocks) get ids and a ToC too, by the same rules.
+- **Password-protected posts** get no ToC until unlocked (and no FAQ schema, §13), so headings and answers don't leak.
 - **Desktop.** Sticky left rail, styled by the theme.
 - **Current section.** The section being read is marked with `aria-current="true"` (IntersectionObserver).
 - **Jumps.** Clicking an entry moves focus to the heading (`tabindex="-1"` + `focus()`). Headings get `scroll-margin-top` (`--blog-kit-scroll-offset`, default 6rem) so a sticky header doesn't cover them.
@@ -891,7 +908,8 @@ A section inside the post body, not a separate post type. Skip it if §0.C6 excl
   - With Yoast, the WebPage node gains the FAQPage type and the Questions are added to Yoast's graph.
   - With Rank Math, an FAQPage entity is merged into its WebPage.
   - Without an SEO plugin, a standalone block is printed.
-  - It is skipped if the SEO plugin's own FAQ block is used in the post.
+  - With another SEO plugin (AIOSEO, SEOPress, The SEO Framework), nothing is printed, so there is never a second graph. Use that plugin's FAQ feature instead.
+  - It is skipped if the SEO plugin's own FAQ block is used in the post, and on password-protected posts.
   - Answer HTML is limited to links, lists, paragraphs and emphasis.
 - **Accessibility.** `<summary>` is focusable by default; give it a visible focus ring.
 - **No rich result** in Google since May 2026 (§7.2). The section exists for readers first.
@@ -995,7 +1013,7 @@ Lighthouse (mobile): Performance, Accessibility, Best Practices, SEO all **≥ 9
 - **One lazy-load layer.**
   - JavaScript lazy-loaders in WP Rocket, LiteSpeed, Perfmatters, FlyingPress or W3TC can lazy-load the hero even though core left it eager.
   - Disable theirs, or exclude above-the-fold images: WP Rocket's "Optimize critical images", Perfmatters' leading-image count, FlyingPress's automatic detection.
-- **Delay-JS features** break consent banners, Consent Mode defaults, analytics and the ToC script. Exclude them, and the `blog-kit/assets/toc.js` path.
+- **Delay-JS features** break consent banners, Consent Mode defaults, analytics and the ToC scripts. Exclude them, and exclude the keyword `blog-kit`: it matches the Blog Kit plugin's `assets/toc.js` and the ToC's inline opener (`data-blog-kit="toc"`). Delayed, the opener runs too late and the desktop ToC shifts the layout.
 - **Generated critical / unused CSS** must be regenerated after every deploy; stale CSS causes CLS.
 - **Object cache** (Redis/Memcached) helps dynamic and logged-in performance. Recommended, not required.
 
@@ -1035,7 +1053,15 @@ Testing:
 
 - **Editor.** Posts are written in the block editor (§1.I1). Draft → review → publish uses WordPress's built-in statuses; no custom workflow states.
 - **AI drafting (§1.I2).** AI agents create drafts through the REST API (`POST /wp-json/wp/v2/posts` with `status: draft`). A human reviews and publishes.
-  - **Use a dedicated user that cannot publish.** With WP-CLI: `wp role create ai_drafter "AI Drafter" --clone=author && wp cap remove ai_drafter publish_posts`. Then create the user with that role. Authors can upload media; Contributors can't.
+  - **Use a dedicated user that can neither publish nor touch published posts.** With WP-CLI:
+
+    ```bash
+    wp role create ai_drafter "AI Drafter" --clone=author
+    wp cap remove ai_drafter publish_posts edit_published_posts delete_published_posts
+    ```
+
+    Then create the user with that role. Cloning Author keeps media uploads (Contributors can't upload). Removing `edit_published_posts` matters: an Author can keep editing its own posts after a human publishes them.
+  - **At publish, the reviewer sets the author** to the byline user (§3.4), so the AI account never appears as the byline.
   - **Create an Application Password for it**: Users → Profile, or `wp user application-password create <user> ai-drafts --porcelain`.
   - **Availability.** Application Passwords need HTTPS (or `WP_ENVIRONMENT_TYPE` = `local`).
   - **Header-stripping hosts.** On Apache/CGI hosts that strip the `Authorization` header, re-save Permalinks (core's `.htaccess` passes it through) or add `SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1`.
@@ -1045,7 +1071,7 @@ Testing:
     - exactly one category ID;
     - the language (multilingual sites);
     - block markup for the body: `<!-- wp:paragraph -->…`, `<!-- wp:heading -->…`, and the FAQ pattern markup from §13.
-  - **Featured images** come from the hero script (§20) or a human.
+  - **Featured images** come from the hero script (§20) or a human. Adding one to a published post doesn't change its modified date (§7.10).
   - **Human review checks facts and wording**, including title, meta description, alt text and structured data (Google, October 2026).
 - **Required at publish.** Title, one real category, featured image and alt text (§3.5, enforced).
 - **Scheduled publishing (§1.I3).**
@@ -1053,7 +1079,7 @@ Testing:
   - Use a real cron: `define( 'DISABLE_WP_CRON', true );` plus a server or host cron hitting `wp-cron.php` (or `wp cron event run --due-now`) every 5 minutes. This avoids "Missed schedule".
 - **Preview.** Core preview works for logged-in users. For external reviewers, the "Public Post Preview" plugin creates expiring links. Previews are `noindex` by core.
 - **Revisions.** Kept by core. Cap them (`define( 'WP_POST_REVISIONS', 20 );`) to keep the database lean.
-- **Publishing sets `post_date`**; every later save updates `post_modified`. Bulk edits and some plugins also touch `post_modified`. Rank Math's "Lock modified date" exists for minor edits.
+- **Publishing sets `post_date`**; every later save updates `post_modified`, except a REST save that only sets the featured image (Blog Kit, §7.10). Bulk edits and some plugins also touch `post_modified`. Rank Math's "Lock modified date" exists for minor edits.
 
 ---
 
@@ -1076,7 +1102,7 @@ Testing:
 
 | Component | Requirement |
 |---|---|
-| WordPress | **7.0+** (tested on 7.1.3). On 6.8–6.9 everything works except the editor preview of Blog Kit blocks (`supports.autoRegister` is 7.0+): place them in templates as markup, or use the shortcodes. WordPress 7.0 requires PHP 7.4+. |
+| WordPress | **7.0+** recommended (tested on 7.1.3); **6.9 minimum** (core Time to Read block). WordPress won't activate Blog Kit on older versions. On 6.9 everything works except the editor preview of Blog Kit blocks (`supports.autoRegister` is 7.0+): place them in templates as markup, or use the shortcodes. WordPress 7.0 requires PHP 7.4+. |
 | PHP | 8.1+ recommended (8.3 tested). |
 | Theme | Block theme (preferred) or a classic child theme. Never edit a third-party parent theme. |
 
@@ -1122,10 +1148,10 @@ Install the latest stable versions and let the host's or the agency's update pol
 
 | Module | Spec | What it does |
 |---|---|---|
-| `content-model.php` | §3, §4, K1 | Allowed blocks; H2–H4 headings; tags detached; comments closed; publish guard |
-| `archives.php` | §4, §7.11 | Tag/date/author archives and feeds → 404; strict 404 guessing; core-sitemap cleanup |
+| `content-model.php` | §3, §4, §7.10, K1 | Allowed blocks; H2–H4 headings; tags detached and hidden on posts; author names unlinked when author pages are off; comments closed and hidden; publish guard; featured-image-only saves keep the modified date |
+| `archives.php` | §4, §5.3, §7.11 | Tag/date/author archives, their feeds and post comment feeds → 404; old post/category URLs → 301 after a permalink change; strict 404 guessing; core-sitemap cleanup |
 | `media.php` | §14.3 | `blog-card` (800×450) and `blog-og` (1200×630) sizes; WebP/AVIF output |
-| `toc.php` | §9.2, §12.1 | Heading ids; ToC block |
+| `toc.php` | §9.2, §12.1 | Heading ids (block and Classic Editor content); ToC block |
 | `post-meta.php` | §7.10, §12.2 | Updated-date block; reading-time wrapper for classic/builders |
 | `related-posts.php` | §11 | Related-posts block |
 | `listing.php` | §8.1 | Blog index/category H1; category navigation |
@@ -1143,6 +1169,8 @@ Blocks (each also a shortcode `[blog_kit_*]` and a template tag `blog_kit_*()`):
 - `blog-kit/not-found`
 
 Reading time is the core block (shortcode/template tag for classic themes).
+
+The SEO integrations target Yoast SEO and Rank Math, and fall back to core when no SEO plugin runs. With another SEO plugin they stay out of the way (§1.F1).
 
 ### 18.4 WordPress gotchas
 
@@ -1172,7 +1200,7 @@ A blog is "done" only when every applicable item is true **on production** (veri
 - [ ] Posts page assigned (Settings → Reading); posts per page per §1.E1
 - [ ] Default category is a real category; no published post in "Uncategorized"
 - [ ] `wp_attachment_pages_enabled` = 0
-- [ ] (If §5.3 applies) every old post URL 301s once to its new URL
+- [ ] (If §5.3 applies) every old post and category URL 301s once to its new URL (crawl the exported list)
 
 ### Content model
 
@@ -1187,7 +1215,8 @@ A blog is "done" only when every applicable item is true **on production** (veri
 - [ ] Posts at `/blog/<slug>/` (or the §1.D1 structure); flat, lowercase, trailing slash
 - [ ] Blog index at `/blog/`; pagination at `/blog/page/N/` (index Query Loop inherits the main query)
 - [ ] Category pages at `/blog/category/<slug>/`; category navigation links to them
-- [ ] Tag, date and author archives (and their feeds, and `/?author=1`) return 404 (author pages only if §1.C1 = full)
+- [ ] Tag, date and author archives (and their feeds, `/?author=1`, `?m=` / `?year=` and post comment feeds) return 404 (author pages only if §1.C1 = full)
+- [ ] No internal links to those 404s: no tag lists, linked author names or date links in templates, menus or widgets
 - [ ] Unknown or deleted post URLs return 404, never a redirect to a similar slug
 - [ ] (Multilingual) Every language prefixed; wrong-language post URLs never return 200 with foreign content
 - [ ] (Multilingual) Switcher on untranslated posts leads to the target language's blog index
@@ -1212,7 +1241,7 @@ A blog is "done" only when every applicable item is true **on production** (veri
 
 - [ ] Exactly one `<h1>`; no skipped heading levels; every body H2/H3 has a stable `id`
 - [ ] `<main>`, `<article>`, `<time datetime>`, author byline, `<aside>` for related posts
-- [ ] ToC renders only above the §1.E4 thresholds: `<nav>` + `<details>`, sticky on desktop, collapsed on mobile, focus moves on jump
+- [ ] ToC renders only above the §1.E4 thresholds (Classic Editor posts included; never on locked password-protected posts): `<nav>` + `<details>`, sticky on desktop and open before first paint, collapsed on mobile, focus moves on jump
 - [ ] Reading time from core Time to Read at 238 wpm, single value (no range)
 - [ ] Related posts: 3 same-category, same-language posts newest first, topped up with latest posts; H3 card titles
 - [ ] Breadcrumb visible: Home → Blog → Category → Post
@@ -1292,7 +1321,7 @@ The style guide lives in `blog-image-style-guide.md`. Walk its intake questions 
 
 ### 20.3 Generator script
 
-`scripts/generate-hero-images.mjs`: Node 20+, no npm dependencies. Copy it, together with `scripts/hero-topics.example.json` renamed to `hero-topics.json`, into the project's `scripts/` folder.
+`scripts/generate-hero-images.mjs`: Node 20+, no npm dependencies. Copy it, together with `scripts/hero-topics.example.json` renamed to `hero-topics.json`, into the project's `scripts/` folder. The script reads `hero-topics.json` from its own folder, then from the current folder; or pass a path as the first argument.
 
 **Topics file:**
 
@@ -1313,6 +1342,10 @@ The style guide lives in `blog-image-style-guide.md`. Walk its intake questions 
 - **`locales`** lists §1.B1 in order; the first one is the primary.
 - **Posts** are referenced by **slug or numeric ID**. Use IDs for drafts, which have no slug until one is set.
 - **Missing posts.** A language whose post doesn't exist is skipped (§1.B4 = independent).
+- **Language check (multilingual).** Each post must be in its topic language, read from Blog Kit's `blog_kit_lang` REST field. Slug lookups also send `lang`, which WPML and Polylang Pro filter by.
+  - A slug that exists only in another language is skipped for that language.
+  - A numeric ID that points at another language fails the topic.
+  - Two languages resolving to the same post fail the topic.
 - **One image per topic, one media item per language**, so each language keeps its own alt text.
 
 **What it does, per topic:**
@@ -1322,14 +1355,17 @@ The style guide lives in `blog-image-style-guide.md`. Walk its intake questions 
 3. Generates one image, skipping the model's interim "thought" images.
 4. Optionally saves a local copy under `HERO_ARCHIVE_DIR/<primary-slug>.<ext>` (§1.J3).
 5. Uploads it with the language's alt text and title, attached to the post.
-6. Sets it as the featured image and verifies that WordPress kept it (WordPress ignores a bad `featured_media` silently).
+6. Sets it as the featured image and verifies that WordPress kept it (WordPress ignores a bad `featured_media` silently). The post's modified date doesn't change (§7.10), so backfilled posts don't show "Updated".
 
 ```bash
 node scripts/generate-hero-images.mjs --dry-run           # resolve posts, print the plan, no spend
-node scripts/generate-hero-images.mjs                     # all topics
+node scripts/generate-hero-images.mjs                     # every topic still missing a hero
 node scripts/generate-hero-images.mjs my-slug other-slug  # subset (primary-language slug or ID)
-node scripts/generate-hero-images.mjs --force my-slug     # regenerate one topic
+node scripts/generate-hero-images.mjs --force my-slug     # replace one topic's hero
+node scripts/generate-hero-images.mjs --force --all       # replace every hero (deliberately explicit)
 ```
+
+`--force` without slugs or `--all` is refused, so a stray flag can't replace every hero on the site. Unknown options are refused too.
 
 **Environment:**
 

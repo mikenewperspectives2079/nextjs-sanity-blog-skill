@@ -28,7 +28,7 @@ Aimed at corporate blogs. Organic-search-first. Works with the site you already 
   - **Navigation:** table of contents, heading anchors, related posts, category navigation, and a proper H1 on the blog index.
   - **Byline:** the "Updated" date and reading time.
   - **FAQ:** an FAQ section plus its schema.
-  - **Guardrails:** a publish guard (no post goes live without one real category, a featured image and alt text), honest 404s for tag, date and author archives, WebP/AVIF uploads.
+  - **Guardrails:** a publish guard (no post goes live without one real category, a featured image and alt text), honest 404s for tag, date and author archives with no leftover links to them, a safety-net 301 for old post and category URLs after a permalink change, WebP/AVIF uploads.
   - **SEO and language fixes:** a 1200×630 share image with alt text, noindex for thin categories, the language-switcher fallback and hreflang gaps.
 
   It ships as blocks, shortcodes and template tags, so it works with any theme type.
@@ -90,7 +90,7 @@ Claude will:
 
 ## Stack assumptions
 
-- **WordPress 7.0+** (tested on 7.1.3). 6.8–6.9 works too, without live editor previews of Blog Kit's blocks. PHP 8.1+ recommended.
+- **WordPress 7.0+** recommended (tested on 7.1.3). 6.9 is the minimum; it works without live editor previews of Blog Kit's blocks. PHP 8.1+ recommended.
 - **Theme:** a block theme (preferred), a classic theme with a child theme, or a page builder for templates (not for post content).
 - **SEO plugin:** Yoast SEO or Rank Math, exactly one. AIOSEO, SEOPress and The SEO Framework can meet the spec, but Blog Kit's integrations target the first two.
 - **Multilingual:** Polylang (recommended for independent posts per language) or WPML. TranslatePress only fits "every post translated" sites. Single-language sites skip the i18n sections.
@@ -105,22 +105,23 @@ Every hook name, option key and behaviour in the spec was checked against source
 - Yoast SEO 28.7;
 - Rank Math 1.0.280;
 - Polylang 3.9.1;
-- WPML 4.9;
-- the Gemini SDKs.
+- WPML 4.9.5 (code and documentation only: WPML is commercial and wasn't run);
+- the Gemini API documentation and SDKs.
 
-Blog Kit and the hero-image script were then run on a WordPress 7.1.3 test site. Each setup passed an end-to-end suite of real HTTP checks (one H1, ToC ids, schema graph, canonicals, hreflang, 404s, sitemap contents, image formats, publish guard, and so on):
+Blog Kit was then run on a WordPress 7.1.3 test site. Each setup passed an end-to-end suite of real HTTP checks (one H1, ToC ids, schema graph, canonicals, hreflang, 404s, old-URL redirects, sitemap contents, image formats, publish guard, and so on) plus PHP-level checks of the parts HTTP can't see:
 
 | Setup | Checks passed |
 |---|---|
-| No SEO plugin | 47 / 47 |
-| Rank Math | 48 / 48 |
-| Yoast SEO | 50 / 50 |
-| Polylang (English + French) | 12 / 12 |
+| No SEO plugin | 81 / 81 |
+| Yoast SEO | 84 / 84 |
+| Rank Math | 82 / 82 |
+| Polylang (English + French) with Yoast SEO | 24 / 24 |
+| Classic theme (template tags) | 12 / 12 |
 
-On top of the suite:
+On top of the suites:
 
-- The classic-theme template tags and the shortcodes were smoke-tested.
-- The hero-image script ran six scenarios (dry run, idempotent re-run, `--force`, a retired model ID, a missing language, a numeric post ID) against a mock Gemini endpoint.
+- The shortcodes were smoke-tested.
+- The hero-image script ran against a local stand-in for the Gemini API (not Google itself): dry run, real uploads, idempotent re-run, `--force` on one topic, `--force` without topics (refused), a typo'd option (refused), a retired model ID, a missing language, a numeric post ID, a wrong-language slug (skipped), a wrong-language ID (refused), two languages pointing at one post (refused), and the default topics-file lookup. Uploading a hero left each post's modified date untouched.
 
 Several defaults in the spec exist because of what that testing found. For example:
 
@@ -129,6 +130,8 @@ Several defaults in the spec exist because of what that testing found. For examp
 - The blog index has no H1 with core blocks alone.
 - Yoast doesn't build its index on staging sites.
 - Rank Math prints nothing until its setup wizard is done or skipped.
+- Yoast's "disable date archives" switch turns `?m=` URLs into homepage redirects instead of 404s.
+- Once a post's comment feed is switched off, WordPress's own URL guessing bounces it to `/feed/feed/` unless told not to.
 
 ## Differences from the Next.js + Sanity version
 

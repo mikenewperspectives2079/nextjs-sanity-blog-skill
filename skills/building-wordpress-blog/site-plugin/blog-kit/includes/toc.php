@@ -38,6 +38,54 @@ function plain_text( $html ) {
 }
 
 /**
+ * Whether a parsed block can contain body headings: Heading blocks, and
+ * Classic Editor / pre-block HTML (freeform), so legacy posts get anchors
+ * and a ToC too.
+ *
+ * @param array $block Parsed block.
+ * @return bool
+ */
+function has_heading_markup( array $block ) {
+	$name = $block['blockName'] ?? null;
+	return 'core/heading' === $name || null === $name || 'core/freeform' === $name;
+}
+
+/**
+ * Body headings (H2–H4) in an HTML fragment, in order: level, text, id.
+ *
+ * @param string $html HTML.
+ * @return array<int, array{level: int, text: string, id: string}>
+ */
+function scan_headings( $html ) {
+	$found = array();
+	if ( false === stripos( (string) $html, '<h' ) ) {
+		return $found;
+	}
+	$tags = new \WP_HTML_Tag_Processor( (string) $html );
+	while ( $tags->next_tag() ) {
+		$tag = (string) $tags->get_tag();
+		if ( ! preg_match( '/^H([2-4])$/', $tag, $match ) ) {
+			continue;
+		}
+		$id   = $tags->get_attribute( 'id' );
+		$text = '';
+		while ( $tags->next_token() ) {
+			if ( '#text' === $tags->get_token_type() ) {
+				$text .= $tags->get_modifiable_text();
+			} elseif ( $tag === $tags->get_tag() && $tags->is_tag_closer() ) {
+				break;
+			}
+		}
+		$found[] = array(
+			'level' => (int) $match[1],
+			'text'  => plain_text( $text ),
+			'id'    => is_string( $id ) ? $id : '',
+		);
+	}
+	return $found;
+}
+
+/**
  * Headings of a post in document order, each with a unique id.
  * Explicit anchors set in the editor are kept and never reused.
  *
@@ -58,17 +106,9 @@ function headings( $post_id ) {
 	if ( $post ) {
 		$walk = static function ( array $blocks ) use ( &$walk, &$found ) {
 			foreach ( $blocks as $block ) {
-				if ( 'core/heading' === ( $block['blockName'] ?? '' ) ) {
-					$html = (string) $block['innerHTML'];
-					$tags = new \WP_HTML_Tag_Processor( $html );
-					if ( $tags->next_tag() && preg_match( '/^H([1-6])$/', (string) $tags->get_tag(), $match ) ) {
-						$id      = $tags->get_attribute( 'id' );
-						$found[] = array(
-							'level'     => (int) $match[1],
-							'text'      => plain_text( $html ),
-							'id'        => is_string( $id ) ? $id : '',
-							'generated' => false,
-						);
+				if ( has_heading_markup( $block ) ) {
+					foreach ( scan_headings( (string) ( $block['innerHTML'] ?? '' ) ) as $heading ) {
+						$found[] = $heading + array( 'generated' => false );
 					}
 				}
 				if ( ! empty( $block['innerBlocks'] ) ) {
@@ -143,39 +183,61 @@ final class Heading_Ids {
 	}
 
 	/**
-	 * Adds the id to one rendered heading block.
+	 * Adds ids to the headings of one rendered block: a Heading block, or a
+	 * chunk of Classic Editor HTML. Runs inside do_blocks, before wptexturize,
+	 * so heading text matches the saved markup exactly.
 	 *
-	 * @param string $html Rendered heading.
+	 * @param string $html  Rendered block.
+	 * @param array  $block Parsed block.
 	 * @return string
 	 */
-	public static function add_id( $html ) {
-		if ( ! self::$post_id ) {
+	public static function add_ids( $html, $block ) {
+		if ( ! self::$post_id || ! has_heading_markup( (array) $block ) || false === stripos( (string) $html, '<h' ) ) {
 			return $html;
 		}
 
-		$tags = new \WP_HTML_Tag_Processor( $html );
-		if ( ! $tags->next_tag() || null !== $tags->get_attribute( 'id' ) ) {
-			return $html;
-		}
+		$list    = headings( self::$post_id );
+		$size    = count( $list );
+		$tags    = new \WP_HTML_Tag_Processor( (string) $html );
+		$changed = false;
 
-		$text = plain_text( $html );
-		$list = headings( self::$post_id );
-		$size = count( $list );
-		for ( $i = self::$cursor; $i < $size; $i++ ) {
-			if ( $list[ $i ]['text'] === $text ) {
-				self::$cursor = $i + 1;
-				if ( $list[ $i ]['generated'] ) {
-					$tags->set_attribute( 'id', $list[ $i ]['id'] );
-					return $tags->get_updated_html();
-				}
-				return $html;
+		while ( $tags->next_tag() ) {
+			$tag = (string) $tags->get_tag();
+			if ( ! preg_match( '/^H[2-4]$/', $tag ) ) {
+				continue;
 			}
+			$has_id = null !== $tags->get_attribute( 'id' );
+			$tags->set_bookmark( 'heading' );
+
+			$text = '';
+			while ( $tags->next_token() ) {
+				if ( '#text' === $tags->get_token_type() ) {
+					$text .= $tags->get_modifiable_text();
+				} elseif ( $tag === $tags->get_tag() && $tags->is_tag_closer() ) {
+					break;
+				}
+			}
+			$text = plain_text( $text );
+
+			for ( $i = self::$cursor; $i < $size; $i++ ) {
+				if ( $list[ $i ]['text'] !== $text ) {
+					continue;
+				}
+				self::$cursor = $i + 1;
+				if ( ! $has_id && $list[ $i ]['generated'] && $tags->seek( 'heading' ) ) {
+					$tags->set_attribute( 'id', $list[ $i ]['id'] );
+					$changed = true;
+				}
+				break;
+			}
+			$tags->release_bookmark( 'heading' );
 		}
-		return $html;
+
+		return $changed ? $tags->get_updated_html() : $html;
 	}
 }
 add_filter( 'the_content', array( Heading_Ids::class, 'start' ), 8 );
-add_filter( 'render_block_core/heading', array( Heading_Ids::class, 'add_id' ), 10 );
+add_filter( 'render_block', array( Heading_Ids::class, 'add_ids' ), 10, 2 );
 add_filter( 'the_content', array( Heading_Ids::class, 'stop' ), 10 );
 
 /**
@@ -236,7 +298,7 @@ function wrapper_attributes( $block, array $attrs ) {
  */
 function render_toc( $attributes = array(), $block = null ) {
 	$post_id = context_post_id( $block );
-	if ( ! $post_id || 'post' !== get_post_type( $post_id ) ) {
+	if ( ! $post_id || 'post' !== get_post_type( $post_id ) || post_password_required( $post_id ) ) {
 		return '';
 	}
 
@@ -260,8 +322,16 @@ function render_toc( $attributes = array(), $block = null ) {
 		$items .= sprintf( '<li><a href="#%1$s">%2$s</a></li>', esc_attr( rawurlencode( $heading['id'] ) ), esc_html( $heading['text'] ) );
 	}
 
+	// Opens the ToC on wide screens before first paint (no layout shift when
+	// the ToC sits above the content); toc.js keeps it in sync on resize.
+	// The data attribute lets "delay JavaScript" features exclude it (§14.7).
+	$open_on_wide = wp_get_inline_script_tag(
+		"(function(n){var d=n&&n.querySelector('details');if(d&&window.matchMedia&&window.matchMedia('(min-width: 1024px)').matches){d.open=true;}})(document.currentScript&&document.currentScript.previousElementSibling);",
+		array( 'data-blog-kit' => 'toc' )
+	);
+
 	return sprintf(
-		'<nav %1$s><details class="blog-kit-toc__details"><summary class="blog-kit-toc__title" id="blog-kit-toc-title">%2$s</summary><ol class="blog-kit-toc__list">%3$s</ol></details></nav>',
+		'<nav %1$s><details class="blog-kit-toc__details"><summary class="blog-kit-toc__title" id="blog-kit-toc-title">%2$s</summary><ol class="blog-kit-toc__list">%3$s</ol></details></nav>%4$s',
 		wrapper_attributes(
 			$block,
 			array(
@@ -270,7 +340,8 @@ function render_toc( $attributes = array(), $block = null ) {
 			)
 		),
 		esc_html( label( 'toc' ) ),
-		$items
+		$items,
+		$open_on_wide
 	);
 }
 

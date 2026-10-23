@@ -215,6 +215,9 @@ function faq_schema_post_id() {
 		return 0;
 	}
 	$post_id = (int) get_queried_object_id();
+	if ( post_password_required( $post_id ) ) {
+		return 0; // Never expose a protected post's answers in markup.
+	}
 	return faq_items( $post_id ) ? $post_id : 0;
 }
 
@@ -282,12 +285,14 @@ add_filter(
 );
 
 /*
- * No supported SEO plugin: print a standalone FAQPage block.
+ * No SEO plugin at all: print a standalone FAQPage block. With an SEO plugin
+ * Blog Kit doesn't integrate with (AIOSEO, SEOPress, The SEO Framework),
+ * print nothing rather than a second graph — use that plugin's FAQ feature.
  */
 add_action(
 	'wp_head',
 	static function () {
-		if ( defined( 'WPSEO_VERSION' ) || defined( 'RANK_MATH_VERSION' ) ) {
+		if ( defined( 'WPSEO_VERSION' ) || defined( 'RANK_MATH_VERSION' ) || defined( 'AIOSEO_VERSION' ) || defined( 'SEOPRESS_VERSION' ) || defined( 'THE_SEO_FRAMEWORK_VERSION' ) ) {
 			return;
 		}
 		$post_id = faq_schema_post_id();
