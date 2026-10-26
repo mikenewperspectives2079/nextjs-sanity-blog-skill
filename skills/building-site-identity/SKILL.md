@@ -114,7 +114,7 @@ These are written into every profile (section 9) so the Content Orchestrator see
 
 ## Common mistakes
 
-- Asking all 85 questions in one go. Pre-fill, skip, and ask in rounds.
+- Asking all 87 questions in one go. Pre-fill, skip, and ask in rounds.
 - Treating public records as confirmed. They are leads until the person confirms.
 - Using the legal name of someone who writes under a pen name anywhere in the profile or the Doc.
 - Client testimonials on a clinician's site (see Round 7).

@@ -222,7 +222,7 @@ Only what they want public. Every item is optional.
 
 ## Round 7 — Boundaries, privacy and compliance `[P]` `[O]`
 
-7.1 **Crisis resources.** Default for US sites: 988 Suicide & Crisis Lifeline (call or text 988), the SAMHSA National Helpline (1-800-662-4357) and the Crisis Text Line (text HOME to 741741). Add local or international lines for non-US audiences. → §9, footer, crisis-adjacent posts
+7.1 **Crisis resources.** Default for US sites: 988 Suicide & Crisis Lifeline (call or text 988, chat at 988lifeline.org; veterans press 1), the SAMHSA National Helpline (1-800-662-4357, free, confidential, 24/7, English and Spanish) and the Crisis Text Line (text HOME to 741741). In an emergency, 911. Don't advertise 988's LGBTQ+ youth option ("press 3"): it ended in July 2025. Add local or international lines for non-US audiences. → §9, footer, crisis-adjacent posts
 
 7.2 **Disclaimer.** The default "not medical advice" wording, or theirs. → §9, disclaimer page
 
@@ -232,11 +232,15 @@ Only what they want public. Every item is optional.
 
 7.5 **Referrals and money.** Will the site refer readers to treatment providers, recovery residences or labs? Any financial relationship (affiliate links, sponsorships, paid listings, lead fees)? Paying or receiving money for referrals to recovery homes, treatment facilities or labs is a federal crime under EKRA (18 U.S.C. § 220), and many states have patient-brokering laws. Sponsorships and affiliate links need clear disclosure (FTC). → §9
 
-7.6 **Tracking.** Confirm no advertising pixels (Meta, TikTok, Google Ads remarketing) on health-related pages. The FTC has acted against health companies whose pixels shared visitors' health information. Privacy-friendly analytics only, per the fleet defaults. → §9
+7.6 **Tracking.** Confirm no advertising pixels (Meta, TikTok, Google Ads remarketing) and no session recorders (Hotjar, Clarity) on the site. The FTC has acted against health companies whose pixels shared visitors' health information (BetterHelp, GoodRx, Cerebral, Monument), and state laws such as Washington's My Health My Data Act reach advocates and nonprofits that HIPAA doesn't. Privacy-friendly analytics only, per the fleet defaults. → §9
 
 7.7 **Nonprofits `[NP]`: donations.** Donation platform, the tax-deductibility statement with EIN, and any state charitable-solicitation disclosures their accountant requires. → §9, §10
 
 7.8 **Photos and names of others.** Written consent on file for anyone shown or named. → §9
+
+7.9 **Organizations that provide substance-use treatment `[O]`.** Confirm intake and anything about patients stays off the website: records of federally assisted treatment programs are protected by 42 CFR Part 2. The site links to the program's own secure system. → §9
+
+7.10 **HHS funding `[O]`.** Does the organization receive HHS money (Medicaid, SAMHSA or other HHS grants)? Then HHS's Section 504 rule requires the site to meet WCAG 2.1 AA, with deadlines in 2027–2028 depending on size; check the current dates. → §9, §12
 
 ---
 

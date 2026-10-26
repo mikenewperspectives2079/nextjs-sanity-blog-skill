@@ -29,7 +29,7 @@ primary_cta: ""
 voice: []                     # 3–5 adjectives
 terms_prefer: []
 terms_avoid: []
-crisis_resources: ["988 Suicide & Crisis Lifeline: call or text 988", "SAMHSA National Helpline: 1-800-662-4357", "Crisis Text Line: text HOME to 741741"]
+crisis_resources: ["988 Suicide & Crisis Lifeline: call or text 988, or chat at 988lifeline.org", "SAMHSA National Helpline: 1-800-662-4357 (free, confidential, 24/7)", "Crisis Text Line: text HOME to 741741", "Emergency: 911"]
 reviewer: ""                  # who approves articles before publishing
 ---
 
