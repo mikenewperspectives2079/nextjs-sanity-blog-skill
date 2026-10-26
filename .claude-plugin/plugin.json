@@ -1,7 +1,7 @@
 {
   "name": "building-wordpress-blog",
   "version": "1.0.0",
-  "description": "Opinionated, batteries-included spec for adding an SEO-first, i18n-ready blog to a WordPress site (block, classic or page-builder themes; Yoast SEO or Rank Math; Polylang or WPML). Walks 46 intake questions, scans the site, drafts a one-page plan for approval, then implements against an 18-section spec with a pass/fail checklist. Ships a tested site plugin (Blog Kit) and an AI hero-image generator that uploads Gemini images to the media library.",
+  "description": "Two skills for launching WordPress sites: building-site-identity interviews you about the person or organization behind a site (people in recovery, advocates, clinicians, nonprofits) and writes a sourced, approved identity profile as Markdown plus a Google Doc for AI writers; building-wordpress-blog adds an SEO-first, i18n-ready blog (46-question intake, one-page plan, 18-section spec, pass/fail checklist, the Blog Kit site plugin and AI hero images via Gemini).",
   "author": {
     "name": "mikenewperspectives2079",
     "url": "https://github.com/mikenewperspectives2079"
@@ -26,6 +26,13 @@
     "block-theme",
     "ai-blog",
     "nano-banana",
-    "gemini-image"
+    "gemini-image",
+    "site-identity",
+    "content-brief",
+    "author-profile",
+    "recovery",
+    "mental-health",
+    "nonprofit",
+    "google-docs"
   ]
 }

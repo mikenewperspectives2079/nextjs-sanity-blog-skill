@@ -1,6 +1,6 @@
 {
   "name": "wordpress-blog",
-  "description": "Claude Code skill for adding an SEO-first, i18n-ready blog to WordPress sites.",
+  "description": "Claude Code skills for launching WordPress sites: identity profiles for the people behind them, and an SEO-first, i18n-ready blog.",
   "owner": {
     "name": "mikenewperspectives2079",
     "url": "https://github.com/mikenewperspectives2079"
@@ -9,7 +9,7 @@
     {
       "name": "building-wordpress-blog",
       "source": ".",
-      "description": "Opinionated, batteries-included spec for adding an SEO-first, i18n-ready blog to a WordPress site. 46-question intake, one-page plan, 18-section spec, pass/fail checklist. Includes the Blog Kit site plugin and AI hero images via Gemini image models.",
+      "description": "Identity-profile intake for the person or organization behind each site (Markdown + Google Doc, sourced and approved), plus an opinionated WordPress blog build: 46-question intake, one-page plan, 18-section spec, pass/fail checklist, Blog Kit site plugin and AI hero images.",
       "version": "1.0.0",
       "homepage": "https://github.com/mikenewperspectives2079/nextjs-sanity-blog-skill",
       "license": "MIT",
@@ -22,7 +22,10 @@
         "rank-math",
         "i18n",
         "hreflang",
-        "ai-images"
+        "ai-images",
+        "site-identity",
+        "author-profile",
+        "google-docs"
       ]
     }
   ]

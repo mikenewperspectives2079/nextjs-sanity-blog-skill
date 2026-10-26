@@ -101,6 +101,8 @@ If the docs contradict the spec, the docs win. Note the contradiction in §1 and
 
 Open `blog-technical-requirements.md` and walk through §0.
 
+**Pre-fill first.** If the site has a Site Identity Profile (`building-site-identity`; `sites/<domain>/identity-profile.md` in the fleet workspace), take every answer it holds: author model and byline (C1), categories from its content pillars (C2–C3), audience, languages (B1), hero-image direction (J1–J3) and its §12 site-build inputs. If the operator keeps fleet defaults, apply them next. Ask only what neither covers.
+
 - **Claude Code:** use `AskUserQuestion`. Group related questions into single calls (max 4 per call). Pre-fill recommended answers from the scan.
 - **Codex / CLIs without an interactive picker:** list questions numerically in plain text and ask the user to answer in batches of 5–10. Show recommended answers from the scan.
 - **Headless / non-interactive:** apply the defaults to whatever the prompt didn't cover; list every assumption.

@@ -1,6 +1,27 @@
-# WordPress Blog (Claude Code skill)
+# WordPress Blog (Claude Code skills)
 
-An opinionated, batteries-included spec for adding a blog to a WordPress site. It's built as a Claude Code skill: install it and say "add a blog to this WordPress site". The agent then:
+Two Claude Code skills for launching WordPress sites:
+
+- **building-site-identity** interviews you about the person or organization behind a new site and writes their identity profile (story, credentials, audience, voice, topics, content rules) as a Markdown file plus a Google Doc, the reference every article is written from.
+- **building-wordpress-blog** adds an SEO-first blog to the site.
+
+The identity skill is tuned for sites run by people in addiction recovery, recovery and mental-health advocates, therapists and other clinicians, and nonprofits, where getting the facts and the language right matters most.
+
+## Identity profiles (building-site-identity)
+
+Say "new site for <name>" and Claude:
+
+1. Asks a few setup questions, including consent: the person or organization approves their own profile.
+2. Reads what already exists (an interview transcript, their bio, their site) and checks public records (NPI Registry for clinicians, nonprofit records), so it asks fewer questions.
+3. Asks only the gaps, in short rounds: identity, story, credentials, audience, voice, topics and stances, boundaries, brand.
+4. Writes the profile, with a source on every fact, a story bank of approved anecdotes, and the rules any AI writer must follow (no invented stories or credentials, safe messaging on suicide, crisis resources, no client testimonials on clinicians' sites).
+5. Saves it as Markdown and as a Google Doc for review, and pulls the person's edits back from the Doc.
+
+It includes a 45-minute, trauma-informed interview guide: one recorded call answers most of the questions in the person's own words. Profiles hold health information, so they live in a private workspace and Drive folder, never in this repository.
+
+## The blog (building-wordpress-blog)
+
+An opinionated, batteries-included spec for adding a blog to a WordPress site. Say "add a blog to this WordPress site". The agent then:
 
 1. Scans the site.
 2. Walks 46 intake questions.
@@ -9,7 +30,7 @@ An opinionated, batteries-included spec for adding a blog to a WordPress site. I
 
 Aimed at corporate blogs. Organic-search-first. Works with the site you already have (block theme, classic theme or page builder; Yoast SEO or Rank Math; Polylang or WPML), configuring them instead of fighting or duplicating them.
 
-## What you actually get
+### What the blog skill gives you
 
 - **A 46-question intake** that covers every fork that changes the build:
   - the site's environment, theme type, SEO plugin and multilingual plugin;
@@ -77,8 +98,12 @@ Claude will:
 
    It finishes on the pass/fail checklist. Settings it can't change itself (no WP-CLI) come back to you as a click-by-click admin checklist.
 
-## What's in the skill
+## What's in the skills
 
+- `skills/building-site-identity/SKILL.md`: the identity-profile workflow.
+  - `identity-questionnaire.md`: the question bank (Round 0 setup, rounds 1–9, branches for people and organizations).
+  - `interview-guide.md`: the recorded-interview script.
+  - `identity-profile-template.md` and `private-notes-template.md`: the outputs.
 - `skills/building-wordpress-blog/SKILL.md`: the orchestrator. Workflow, site-scan checklist, verification steps, fallbacks for non-interactive environments.
 - `skills/building-wordpress-blog/blog-technical-requirements.md`: the engineering spec.
   - §0 holds the intake questionnaire; §1 is the per-project profile filled in from the answers.
